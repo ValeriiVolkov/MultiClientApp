@@ -47,6 +47,7 @@ public class ChatSocketClient {
             System.out.println("Connection...");
             //socket = new Socket(nameOfContainer, port);
             socket = new Socket("localhost", 8000);
+            System.out.println("Connection established");
             inStream = socket.getInputStream();
             outStream = socket.getOutputStream();
             createReadThread();
@@ -137,7 +138,7 @@ public class ChatSocketClient {
      * @param outStream
      */
     private void handleExitMessage(String message, OutputStream outStream) {
-        if(message.toUpperCase().equals(ServiceMessages.CLIENT_QUITED_THE_CHAT))
+        if(message.toUpperCase().equals(EXIT))
         {
             try {
                 outStream.write(wrapWithIP(ServiceMessages.CLIENT_QUITED_THE_CHAT.toString()).getBytes(CHARSET));

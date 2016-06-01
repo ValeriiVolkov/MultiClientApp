@@ -6,7 +6,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static msitse.chat.ChatUtils.*;
 
@@ -17,8 +19,9 @@ public class ChatSocketServer {
     private Socket socket = null;
     private InputStream inStream = null;
     private OutputStream currentOutStream = null;
-    private List<OutputStream> outStreamList;
+    private HashMap<String, OutputStream> outStreamList;
     private List<String> clientIpList;
+    private String currentSocketAdress;
 
     private int port;
 
@@ -53,7 +56,7 @@ public class ChatSocketServer {
     public void createSocket() {
         try {
             ServerSocket serverSocket = new ServerSocket(8000);
-            outStreamList = new ArrayList<OutputStream>();
+            outStreamList = new HashMap<String, OutputStream>();
             clientIpList = new ArrayList<String>();
             System.out.println("Server is started");
             while (true) {
@@ -63,7 +66,8 @@ public class ChatSocketServer {
 
                 inStream = socket.getInputStream();
                 currentOutStream = socket.getOutputStream();
-                outStreamList.add(socket.getOutputStream());
+                outStreamList.put(socket.getInetAddress().getHostAddress(), currentOutStream);
+
                 createReadThread();
                 createWriteThread();
             }
@@ -87,14 +91,20 @@ public class ChatSocketServer {
                             System.arraycopy(readBuffer, 0, arrayBytes, 0, num);
                             String message = new String(arrayBytes, CHARSET);
                             System.out.println(RECEIVED_FROM + message);
-                            sendToAllConnectedClient(wrapWithIP(message));
+                            currentSocketAdress = socket.getInetAddress().getHostAddress();
+
+                            sendToAllConnectedClients(wrapWithIP(message));
                         } else {
                             notify();
+                            handleClientExit(socket);
                         }
                     } catch (SocketException se) {
                         System.exit(0);
                     } catch (IOException i) {
                         i.printStackTrace();
+                    } catch (IllegalMonitorStateException ie) {
+                        //Catch to exclude too many outputs from console
+                        /*Do nothing*/
                     }
                 }
             }
@@ -111,7 +121,6 @@ public class ChatSocketServer {
             public void run() {
                 try {
                     while (socket.isConnected()) {
-
                         BufferedReader inputReader = new BufferedReader(new InputStreamReader(System.in));
                         sleep(SLEEP_TIME);
                         String typedMessage = inputReader.readLine();
@@ -123,7 +132,6 @@ public class ChatSocketServer {
                             }
                         }
                     }
-                    handleClientExit(socket);
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 } catch (UnknownHostException e) {
@@ -141,12 +149,15 @@ public class ChatSocketServer {
 
     /**
      * Sends messages to all clients except a client who send the message
+     *
      * @param message
      */
-    private void sendToAllConnectedClient(String message) {
-        for (OutputStream outputStream : outStreamList) {
+    private void sendToAllConnectedClients(String message) {
+        for (Map.Entry<String, OutputStream> entry : outStreamList.entrySet()) {
+            String address = entry.getKey();
+            OutputStream outputStream = entry.getValue();
             try {
-                if (outputStream != currentOutStream) {
+                if (!address.equals(currentSocketAdress)) {
                     outputStream.write(message.getBytes(CHARSET));
                 }
             } catch (IOException e) {
@@ -157,6 +168,7 @@ public class ChatSocketServer {
 
     /**
      * Handles message to show all connected clients
+     *
      * @param message
      */
     private void handleMessageShowAllClients(String message) {
@@ -171,11 +183,12 @@ public class ChatSocketServer {
 
     /**
      * Handles message for client's exit. Show ip as identificator of a client
+     *
      * @param socket
      */
     private void handleClientExit(Socket socket) {
         //In the case when client exit the application without inputting needed message
-        String message = socket.getInetAddress().getAddress() + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT;
+        String message = socket.getInetAddress().getAddress() + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.toString();
         System.out.println(message);
         handleMessageShowAllClients(message);
     }
