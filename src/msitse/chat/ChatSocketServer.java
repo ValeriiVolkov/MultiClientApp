@@ -92,18 +92,20 @@ public class ChatSocketServer {
                             String message = new String(arrayBytes, CHARSET);
                             System.out.println(RECEIVED_FROM + message);
                             currentSocketAdress = socket.getInetAddress().getHostAddress();
-
                             sendToAllConnectedClients(wrapWithIP(message));
                         } else {
-                            notify();
                             handleClientExit(socket);
+                            //If there is at least one connected client then notify these clients
+                            if(!clientIpList.isEmpty()) {
+                                notify();
+                            }
                         }
                     } catch (SocketException se) {
                         System.exit(0);
                     } catch (IOException i) {
                         i.printStackTrace();
                     } catch (IllegalMonitorStateException ie) {
-                        //Catch to exclude too many outputs from console
+                        //Catch to exclude message about exception
                         /*Do nothing*/
                     }
                 }
@@ -188,7 +190,10 @@ public class ChatSocketServer {
      */
     private void handleClientExit(Socket socket) {
         //In the case when client exit the application without inputting needed message
-        String message = socket.getInetAddress().getAddress() + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.toString();
+        String address = socket.getInetAddress().getHostAddress();
+        String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.toString();
+        clientIpList.remove(address);
+        outStreamList.remove(address);
         System.out.println(message);
         handleMessageShowAllClients(message);
     }
