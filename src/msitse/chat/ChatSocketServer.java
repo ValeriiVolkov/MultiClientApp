@@ -3,7 +3,6 @@ package msitse.chat;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,11 +16,8 @@ import static msitse.chat.ChatUtils.*;
  */
 public class ChatSocketServer {
     private Socket socket = null;
-    private InputStream inStream = null;
-    private OutputStream currentOutStream = null;
-    private Map<String, OutputStream> outStreamList;
+    private Map<String, Socket> socketList;
     private List<String> clientIpList;
-    private String currentSocketAdress;
 
     private int port;
 
@@ -37,7 +33,7 @@ public class ChatSocketServer {
                 ChatSocketServer chatServer = new ChatSocketServer(Integer.valueOf(args[0]));
                 chatServer.createSocket();
             } catch (NumberFormatException e) {
-                System.out.println("Wrong input for the port");
+                System.out.println("Incorrect input for the port");
             }
         }
     }
@@ -45,20 +41,19 @@ public class ChatSocketServer {
     /**
      * Creates socket
      */
-    public void createSocket() {
+    private void createSocket() {
         try {
             ServerSocket serverSocket = new ServerSocket(port);
-            outStreamList = new HashMap<String, OutputStream>();
+            socketList = new HashMap<String, Socket>();
             clientIpList = new ArrayList<String>();
             System.out.println("Server is started");
+            System.out.println("Input " + EXIT + " to exit from app (no strict rules for capitalization)");
             while (true) {
                 socket = serverSocket.accept();
                 clientIpList.add(socket.getInetAddress().getHostAddress());
-                showMessageAboutInputForClientsList();
+                showMessageAboutOperations();
 
-                inStream = socket.getInputStream();
-                currentOutStream = socket.getOutputStream();
-                outStreamList.put(socket.getInetAddress().getHostAddress(), currentOutStream);
+                socketList.put(socket.getRemoteSocketAddress().toString(), socket);
 
                 createReadThread();
                 createWriteThread();
@@ -71,47 +66,14 @@ public class ChatSocketServer {
     /**
      * Creates read thread for getting messages from clients
      */
-    public void createReadThread() {
-        Thread readThread = new Thread() {
-            public void run() {
-                while (socket.isConnected()) {
-                    try {
-                        byte[] readBuffer = new byte[200];
-                        int num = inStream.read(readBuffer);
-                        if (num > 0) {
-                            byte[] arrayBytes = new byte[num];
-                            System.arraycopy(readBuffer, 0, arrayBytes, 0, num);
-                            String message = new String(arrayBytes, CHARSET);
-                            System.out.println(RECEIVED_FROM + message);
-                            currentSocketAdress = socket.getInetAddress().getHostAddress();
-                            sendToAllConnectedClients(wrapWithIP(message));
-                        } else {
-                            //If there is at least one connected client then notify these clients
-                            if (!clientIpList.isEmpty()) {
-                                notify();
-                                socket.close();
-                            }
-                        }
-                    } catch (SocketException se) {
-                        System.exit(0);
-                    } catch (IOException i) {
-                        i.printStackTrace();
-                    } catch (IllegalMonitorStateException ie) {
-                        //Catched in the case when client exits without typing EXIT message, i.e. just close the console
-                        handleClientExit(socket);
-                    }
-                }
+    private void createReadThread() {
+        ClientReadThread clientReadThread = new ClientReadThread(socket, this);
 
-            }
-        };
-        readThread.setPriority(Thread.MAX_PRIORITY);
-        readThread.start();
+        clientReadThread.setPriority(Thread.MAX_PRIORITY);
+        clientReadThread.start();
     }
 
-    /**
-     * Creates write thread for sending messages to clients
-     */
-    public void createWriteThread() {
+    private void createWriteThread() {
         Thread writeThread = new Thread() {
             public void run() {
                 try {
@@ -119,10 +81,12 @@ public class ChatSocketServer {
                         BufferedReader inputReader = new BufferedReader(new InputStreamReader(System.in));
                         sleep(SLEEP_TIME);
                         String typedMessage = inputReader.readLine();
+                        handleExitMessage(typedMessage);
                         handleMessageShowAllClients(typedMessage);
+                        handleMessageKickOut(typedMessage);
                         if (typedMessage != null && typedMessage.length() > 0) {
                             synchronized (socket) {
-                                currentOutStream.write(typedMessage.getBytes(CHARSET));
+                                sendToAllConnectedClients(typedMessage);
                                 sleep(SLEEP_TIME);
                             }
                         }
@@ -135,6 +99,8 @@ public class ChatSocketServer {
                     ie.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
+                } finally {
+                    interrupt();
                 }
             }
         };
@@ -143,18 +109,15 @@ public class ChatSocketServer {
     }
 
     /**
-     * Sends messages to all clients except a client who send the message
+     * Sends messages to all clients
      *
      * @param message
      */
-    private void sendToAllConnectedClients(String message) {
-        for (Map.Entry<String, OutputStream> entry : outStreamList.entrySet()) {
-            String address = entry.getKey();
-            OutputStream outputStream = entry.getValue();
+    private void sendToAllConnectedClients(String message) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            OutputStream outputStream = entry.getValue().getOutputStream();
             try {
-                if (!address.equals(currentSocketAdress)) {
-                    outputStream.write(message.getBytes(CHARSET));
-                }
+                outputStream.write(wrapWithIP(message).getBytes(CHARSET));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -177,6 +140,27 @@ public class ChatSocketServer {
     }
 
     /**
+     * Handles message to kick client from chat
+     *
+     * @param message
+     */
+    private void handleMessageKickOut(String message) throws IOException {
+        if (message.toUpperCase().contains(KICK)) {
+            String ip = message.split("_")[1];
+            String kickOutMessage = ServiceMessages.KICK.message() + ip;
+            if (socketList.containsKey(ip)) {
+                sendToAllConnectedClients(kickOutMessage);
+                socketList.get(ip).close();
+                socketList.remove(ip);
+                clientIpList.remove(ip);
+                System.out.println(kickOutMessage);
+            } else {
+                System.out.println("The input for IP is incorrect");
+            }
+        }
+    }
+
+    /**
      * Handles message for client's exit. Show ip as identificator of a client
      *
      * @param socket
@@ -186,20 +170,68 @@ public class ChatSocketServer {
         String address = socket.getInetAddress().getHostAddress();
         String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.message();
         clientIpList.remove(address);
-        outStreamList.remove(address);
+        socketList.remove(address);
         System.out.println(message);
         handleMessageShowAllClients(message);
     }
-
 
     /**
      * Shows the message about the input for showing all connected clients when
      * the first client is connected
      */
-    private void showMessageAboutInputForClientsList() {
+    private void showMessageAboutOperations() {
         if (clientIpList.size() == 1) {
             System.out.println("Input " + SHOW_ALL_CLIENTS + " to show all connected clients " +
                     "(no strict rules for capitalization)");
+            System.out.println("Enter KICK_<IP> to kick out user from chat");
+        }
+    }
+
+    /**
+     * Handles message about exit from a server
+     *
+     * @param message
+     */
+    private void handleExitMessage(String message) throws IOException {
+        if (message.toUpperCase().equals(EXIT)) {
+            sendToAllConnectedClients(SERVER_EXIT);
+            System.exit(0);
+        }
+    }
+
+    /**
+     * Returns the list of all connected clients
+     */
+    public List<String> getClients(){
+        return clientIpList;
+    }
+
+    /**
+     * Closes a socket
+     * @param socket
+     * @throws IOException
+     */
+    public void closeClient(Socket socket) throws IOException {
+        handleClientExit(socket);
+        socket.close();
+    }
+
+    /**
+     * Sends messages to all clients except a client who send the message
+     *
+     * @param message
+     */
+    public void sendToAllConnectedClientsExceptCurrent(String message, String currentAdress) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            String address = entry.getKey();
+            OutputStream outputStream = entry.getValue().getOutputStream();
+            try {
+                if (!address.equals(currentAdress)) {
+                    outputStream.write(message.getBytes(CHARSET));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

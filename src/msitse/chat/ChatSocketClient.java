@@ -28,6 +28,7 @@ public class ChatSocketClient {
             try {
                 System.out.println("Input " + EXIT + " to exit from app (no strict rules for capitalization)");
                 ChatSocketClient myChatClient = new ChatSocketClient(args[0], Integer.valueOf(args[1]));
+                showIp();
                 myChatClient.createSocket();
             } catch (NumberFormatException e) {
                 System.out.println("Wrong input for the port");
@@ -65,13 +66,12 @@ public class ChatSocketClient {
                 while (socket.isConnected()) {
                     try {
                         byte[] readBuffer = new byte[SIZE_OF_BUFFER];
-                        int num = inStream.read(readBuffer);
-                        if (num > 0) {
-                            byte[] arrayBytes = new byte[num];
-                            System.arraycopy(readBuffer, 0, arrayBytes, 0, num);
+                        int size = inStream.read(readBuffer);
+                        if (size > 0) {
+                            byte[] arrayBytes = new byte[size];
+                            System.arraycopy(readBuffer, 0, arrayBytes, 0, size);
                             String receivedMessage = new String(arrayBytes, ChatUtils.CHARSET);
 
-                            //TODO wrapIP is needed
                             System.out.println(RECEIVED_FROM + receivedMessage);
                         }
                     } catch (SocketException se) {

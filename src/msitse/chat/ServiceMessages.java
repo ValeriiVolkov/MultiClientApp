@@ -5,7 +5,8 @@ package msitse.chat;
  */
 public enum ServiceMessages {
     CONNECTION_ESTABLISHED("Connection established"),
-    CLIENT_QUITED_THE_CHAT("Decided to quit the chat");
+    CLIENT_QUITED_THE_CHAT("Decided to quit the chat"),
+    KICK("The client is kicked out: ");
 
     private String message;
 

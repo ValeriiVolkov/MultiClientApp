@@ -12,7 +12,10 @@ public class ChatUtils {
     public static int SLEEP_TIME = 80;
 
     public static final String RECEIVED_FROM = "Received from ";
+    public static final String SERVER_EXIT = "Server is not available";
+
     public static final String SHOW_ALL_CLIENTS = "SHOW_CLIENTS";
+    public static final String KICK = "KICK_";
     public static final String EXIT = "EXIT";
 
     /**
@@ -24,5 +27,13 @@ public class ChatUtils {
      */
     public static String wrapWithIP(String message) throws UnknownHostException {
         return Inet4Address.getLocalHost().getHostAddress() + " : " + message;
+    }
+
+    /**
+     * Outputs the ip of a client
+     * @throws UnknownHostException
+     */
+    public static void showIp() throws UnknownHostException {
+        System.out.println("IP of client: " + Inet4Address.getLocalHost().getHostAddress());
     }
 }
