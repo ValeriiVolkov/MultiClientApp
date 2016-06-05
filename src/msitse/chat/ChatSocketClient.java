@@ -16,27 +16,23 @@ public class ChatSocketClient {
     private String nameOfContainer;
     private int port;
 
-/*    public ChatSocketClient(String nameOfContainer, int port) {
+    public ChatSocketClient(String nameOfContainer, int port) {
         this.nameOfContainer = nameOfContainer;
         this.port = port;
-    }*/
+    }
 
     public static void main(String[] args) throws Exception {
-        /*if(args.length < 2)
-        {
+        if (args.length < 2) {
             System.out.println("Two parameters: 1st - for ip, 2nd - for port are needed");
+        } else {
+            try {
+                System.out.println("Input " + EXIT + " to exit from app (no strict rules for capitalization)");
+                ChatSocketClient myChatClient = new ChatSocketClient(args[0], Integer.valueOf(args[1]));
+                myChatClient.createSocket();
+            } catch (NumberFormatException e) {
+                System.out.println("Wrong input for the port");
+            }
         }
-        else{*/
-        try {
-            //ChatSocketClient myChatClient = new ChatSocketClient(args[0], Integer.valueOf(args[1]));
-            System.out.println("Input " + EXIT +" to exit from app (no strict rules for capitalization)");
-            ChatSocketClient myChatClient = new ChatSocketClient();
-            myChatClient.createSocket();
-
-        } catch (NumberFormatException e) {
-            System.out.println("Wrong input for the port");
-        }
-        //}
     }
 
     /**
@@ -45,15 +41,13 @@ public class ChatSocketClient {
     public void createSocket() {
         try {
             System.out.println("Connection...");
-            //socket = new Socket(nameOfContainer, port);
-            socket = new Socket("localhost", 8000);
+            socket = new Socket(nameOfContainer, port);
             System.out.println("Connection established");
             inStream = socket.getInputStream();
             outStream = socket.getOutputStream();
             createReadThread();
             createWriteThread();
 
-            //System.out.println(ServiceMessages.CONNECTION_ESTABLISHED.toString());
             sendMessageConnectionEstablished(outStream);
         } catch (UnknownHostException u) {
             u.printStackTrace();
@@ -76,6 +70,8 @@ public class ChatSocketClient {
                             byte[] arrayBytes = new byte[num];
                             System.arraycopy(readBuffer, 0, arrayBytes, 0, num);
                             String receivedMessage = new String(arrayBytes, ChatUtils.CHARSET);
+
+                            //TODO wrapIP is needed
                             System.out.println(RECEIVED_FROM + receivedMessage);
                         }
                     } catch (SocketException se) {
@@ -122,11 +118,12 @@ public class ChatSocketClient {
 
     /**
      * Sends message about established connection to server
+     *
      * @param outStream
      */
     private void sendMessageConnectionEstablished(OutputStream outStream) {
         try {
-            outStream.write(wrapWithIP(ServiceMessages.CONNECTION_ESTABLISHED.toString()).getBytes(CHARSET));
+            outStream.write(wrapWithIP(ServiceMessages.CONNECTION_ESTABLISHED.message()).getBytes(CHARSET));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -134,14 +131,14 @@ public class ChatSocketClient {
 
     /**
      * Handles message about exit from a client
+     *
      * @param message
      * @param outStream
      */
     private void handleExitMessage(String message, OutputStream outStream) {
-        if(message.toUpperCase().equals(EXIT))
-        {
+        if (message.toUpperCase().equals(EXIT)) {
             try {
-                outStream.write(wrapWithIP(ServiceMessages.CLIENT_QUITED_THE_CHAT.toString()).getBytes(CHARSET));
+                outStream.write(wrapWithIP(ServiceMessages.CLIENT_QUITED_THE_CHAT.message()).getBytes(CHARSET));
                 System.exit(0);
             } catch (IOException e) {
                 e.printStackTrace();

@@ -19,35 +19,27 @@ public class ChatSocketServer {
     private Socket socket = null;
     private InputStream inStream = null;
     private OutputStream currentOutStream = null;
-    private HashMap<String, OutputStream> outStreamList;
+    private Map<String, OutputStream> outStreamList;
     private List<String> clientIpList;
     private String currentSocketAdress;
 
     private int port;
 
-/*    public ChatSocketServer(int port) {
+    public ChatSocketServer(int port) {
         this.port = port;
-    }*/
+    }
 
     public static void main(String[] args) {
-        ChatSocketServer chatServer = new ChatSocketServer();
-        chatServer.createSocket();
-
-        /*if(args.length < 1)
-        {
+        if (args.length < 1) {
             System.out.println("Parameter for port is needed");
+        } else {
+            try {
+                ChatSocketServer chatServer = new ChatSocketServer(Integer.valueOf(args[0]));
+                chatServer.createSocket();
+            } catch (NumberFormatException e) {
+                System.out.println("Wrong input for the port");
+            }
         }
-        else{*/
-        /*try {
-            //msitse.chat.ChatSocketClient myChatClient = new msitse.chat.ChatSocketClient(args[0], Integer.valueOf(args[1]));
-            ChatSocketServer chatServer = new ChatSocketServer(Integer.valueOf(args[0]));
-            chatServer.createSocket();
-        }
-        catch (NumberFormatException e)
-        {
-            System.out.println("Wrong input for the port");
-        }*/
-        //}
     }
 
     /**
@@ -55,7 +47,7 @@ public class ChatSocketServer {
      */
     public void createSocket() {
         try {
-            ServerSocket serverSocket = new ServerSocket(8000);
+            ServerSocket serverSocket = new ServerSocket(port);
             outStreamList = new HashMap<String, OutputStream>();
             clientIpList = new ArrayList<String>();
             System.out.println("Server is started");
@@ -94,10 +86,10 @@ public class ChatSocketServer {
                             currentSocketAdress = socket.getInetAddress().getHostAddress();
                             sendToAllConnectedClients(wrapWithIP(message));
                         } else {
-                            handleClientExit(socket);
                             //If there is at least one connected client then notify these clients
-                            if(!clientIpList.isEmpty()) {
+                            if (!clientIpList.isEmpty()) {
                                 notify();
+                                socket.close();
                             }
                         }
                     } catch (SocketException se) {
@@ -105,10 +97,11 @@ public class ChatSocketServer {
                     } catch (IOException i) {
                         i.printStackTrace();
                     } catch (IllegalMonitorStateException ie) {
-                        //Catch to exclude message about exception
-                        /*Do nothing*/
+                        //Catched in the case when client exits without typing EXIT message, i.e. just close the console
+                        handleClientExit(socket);
                     }
                 }
+
             }
         };
         readThread.setPriority(Thread.MAX_PRIORITY);
@@ -191,7 +184,7 @@ public class ChatSocketServer {
     private void handleClientExit(Socket socket) {
         //In the case when client exit the application without inputting needed message
         String address = socket.getInetAddress().getHostAddress();
-        String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.toString();
+        String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.message();
         clientIpList.remove(address);
         outStreamList.remove(address);
         System.out.println(message);
