@@ -48,6 +48,7 @@ public class ChatSocketServer {
             clientIpList = new ArrayList<String>();
             System.out.println("Server is started");
             System.out.println("Input " + EXIT + " to exit from app (no strict rules for capitalization)");
+            System.out.println("Press ENTER key before typing the message to a client");
             while (true) {
                 socket = serverSocket.accept();
                 clientIpList.add(socket.getInetAddress().getHostAddress());
@@ -82,10 +83,8 @@ public class ChatSocketServer {
                         handleMessageShowAllClients(typedMessage);
                         handleMessageKickOut(typedMessage);
                         if (typedMessage != null && typedMessage.length() > 0) {
-                            synchronized (socket) {
-                                sendToAllConnectedClients(typedMessage);
-                                sleep(SLEEP_TIME);
-                            }
+                            sendToAllConnectedClients(typedMessage);
+                            sleep(SLEEP_TIME);
                         }
                     }
                 } catch (UnsupportedEncodingException e) {
@@ -134,13 +133,13 @@ public class ChatSocketServer {
 
     /**
      * Removes socket with given IP from the list of connected sockets
+     *
      * @param ip
      */
     private void removeSocketWithIP(String ip) throws IOException {
         for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
             Socket s = entry.getValue();
-            if(s.getInetAddress().getHostAddress().contains(ip))
-            {
+            if (s.getInetAddress().getHostAddress().contains(ip)) {
                 s.close();
                 socketList.remove(s.getRemoteSocketAddress().toString());
                 return;
@@ -151,12 +150,13 @@ public class ChatSocketServer {
     /**
      * Returns the list of all connected clients
      */
-    public List<String> getClients(){
+    public List<String> getClients() {
         return clientIpList;
     }
 
     /**
      * Closes a socket
+     *
      * @param socket
      * @throws IOException
      */
