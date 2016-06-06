@@ -52,9 +52,7 @@ public class ChatSocketServer {
                 socket = serverSocket.accept();
                 clientIpList.add(socket.getInetAddress().getHostAddress());
                 showMessageAboutOperations();
-
                 socketList.put(socket.getRemoteSocketAddress().toString(), socket);
-
                 createReadThread();
                 createWriteThread();
             }
@@ -68,7 +66,6 @@ public class ChatSocketServer {
      */
     private void createReadThread() {
         ClientReadThread clientReadThread = new ClientReadThread(socket, this);
-
         clientReadThread.setPriority(Thread.MAX_PRIORITY);
         clientReadThread.start();
     }
@@ -109,58 +106,6 @@ public class ChatSocketServer {
     }
 
     /**
-     * Sends messages to all clients
-     *
-     * @param message
-     */
-    private void sendToAllConnectedClients(String message) throws IOException {
-        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
-            OutputStream outputStream = entry.getValue().getOutputStream();
-            try {
-                outputStream.write(wrapWithIP(message).getBytes(CHARSET));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * Handles message to show all connected clients
-     *
-     * @param message
-     */
-    private void handleMessageShowAllClients(String message) {
-        if (message.toUpperCase().equals(SHOW_ALL_CLIENTS)) {
-            System.out.println("The following clients are connected:");
-            int i = 1;
-            for (String clientIp : clientIpList) {
-                System.out.println(i + " : " + clientIp);
-            }
-        }
-    }
-
-    /**
-     * Handles message to kick client from chat
-     *
-     * @param message
-     */
-    private void handleMessageKickOut(String message) throws IOException {
-        if (message.toUpperCase().contains(KICK)) {
-            String ip = message.split("_")[1];
-            String kickOutMessage = ServiceMessages.KICK.message() + ip;
-            if (socketList.containsKey(ip)) {
-                sendToAllConnectedClients(kickOutMessage);
-                socketList.get(ip).close();
-                socketList.remove(ip);
-                clientIpList.remove(ip);
-                System.out.println(kickOutMessage);
-            } else {
-                System.out.println("The input for IP is incorrect");
-            }
-        }
-    }
-
-    /**
      * Handles message for client's exit. Show ip as identificator of a client
      *
      * @param socket
@@ -188,14 +133,18 @@ public class ChatSocketServer {
     }
 
     /**
-     * Handles message about exit from a server
-     *
-     * @param message
+     * Removes socket with given IP from the list of connected sockets
+     * @param ip
      */
-    private void handleExitMessage(String message) throws IOException {
-        if (message.toUpperCase().equals(EXIT)) {
-            sendToAllConnectedClients(SERVER_EXIT);
-            System.exit(0);
+    private void removeSocketWithIP(String ip) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            Socket s = entry.getValue();
+            if(s.getInetAddress().getHostAddress().contains(ip))
+            {
+                s.close();
+                socketList.remove(s.getRemoteSocketAddress().toString());
+                return;
+            }
         }
     }
 
@@ -229,6 +178,69 @@ public class ChatSocketServer {
                 if (!address.equals(currentAdress)) {
                     outputStream.write(message.getBytes(CHARSET));
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Handles message to show all connected clients
+     *
+     * @param message
+     */
+    private void handleMessageShowAllClients(String message) {
+        if (message.toUpperCase().equals(SHOW_ALL_CLIENTS)) {
+            System.out.println("The following clients are connected:");
+            int i = 1;
+            for (String clientIp : clientIpList) {
+                System.out.println(i + " : " + clientIp);
+            }
+        }
+    }
+
+    /**
+     * Handles message to kick client from chat
+     *
+     * @param message
+     */
+    private void handleMessageKickOut(String message) throws IOException {
+        if (message.toUpperCase().contains(KICK)) {
+            String ip = message.split("_")[1];
+            String kickOutMessage = ServiceMessages.KICK.message() + ip;
+            if (clientIpList.contains(ip)) {
+                sendToAllConnectedClients(kickOutMessage);
+                removeSocketWithIP(ip);
+                clientIpList.remove(ip);
+                System.out.println(kickOutMessage);
+            } else {
+                System.out.println("The input for IP is incorrect");
+            }
+        }
+    }
+
+    /**
+     * Handles message about exit from a server
+     *
+     * @param message
+     */
+    private void handleExitMessage(String message) throws IOException {
+        if (message.toUpperCase().equals(EXIT)) {
+            sendToAllConnectedClients(SERVER_EXIT);
+            System.exit(0);
+        }
+    }
+
+    /**
+     * Sends messages to all clients
+     *
+     * @param message
+     */
+    private void sendToAllConnectedClients(String message) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            OutputStream outputStream = entry.getValue().getOutputStream();
+            try {
+                outputStream.write(wrapWithIP(message).getBytes(CHARSET));
             } catch (IOException e) {
                 e.printStackTrace();
             }
