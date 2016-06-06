@@ -48,6 +48,7 @@ public class ChatSocketServer {
             clientIpList = new ArrayList<String>();
             System.out.println("Server is started");
             System.out.println("Input " + EXIT + " to exit from app (no strict rules for capitalization)");
+            System.out.println("Press ENTER key before typing the message to a client");
             while (true) {
                 socket = serverSocket.accept();
                 clientIpList.add(socket.getInetAddress().getHostAddress());
