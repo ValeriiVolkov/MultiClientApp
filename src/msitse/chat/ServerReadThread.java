@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static msitse.chat.ChatUtils.CHARSET;
 import static msitse.chat.ChatUtils.RECEIVED_FROM;
@@ -11,13 +13,15 @@ import static msitse.chat.ChatUtils.RECEIVED_FROM;
 /**
  * Created by Valerii Volkov
  */
-public class ClientReadThread extends Thread {
+public class ServerReadThread extends Thread {
     private Socket socket;
     private InputStream inputStream;
     private ChatSocketServer server;
     private String currentSocketAdress;
 
-    public ClientReadThread(Socket socket, ChatSocketServer server)
+    private Logger LOGGER = Logger.getLogger("ServerReadThread");
+
+    public ServerReadThread(Socket socket, ChatSocketServer server)
     {
         this.socket = socket;
         this.server = server;
@@ -48,11 +52,11 @@ public class ClientReadThread extends Thread {
                     }
                 }
             } catch (SocketException se) {
-                //Catched but not written to eliminate excess messages in the console
+                LOGGER.log(Level.SEVERE, "Socket Exception", se);
             } catch (IOException i) {
-                i.printStackTrace();
+                LOGGER.log(Level.SEVERE, "IO Exception", i);
             } catch (IllegalMonitorStateException ie) {
-                //Catched but not written to eliminate excess messages in the console
+                LOGGER.log(Level.SEVERE, "Illegal Monitor State Exception", ie);
             } finally {
                 interrupt();
             }

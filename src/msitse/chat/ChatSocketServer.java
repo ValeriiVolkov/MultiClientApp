@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static msitse.chat.ChatUtils.*;
 
@@ -20,6 +22,8 @@ public class ChatSocketServer {
     private List<String> clientIpList;
 
     private int port;
+
+    private Logger LOGGER = Logger.getLogger("ChatSocketServer");
 
     public ChatSocketServer(int port) {
         this.port = port;
@@ -58,7 +62,7 @@ public class ChatSocketServer {
                 createWriteThread();
             }
         } catch (IOException io) {
-            io.printStackTrace();
+            LOGGER.log(Level.SEVERE, "IO Exception", io);
         }
     }
 
@@ -66,7 +70,7 @@ public class ChatSocketServer {
      * Creates read thread for getting messages from clients
      */
     private void createReadThread() {
-        ClientReadThread clientReadThread = new ClientReadThread(socket, this);
+        ServerReadThread clientReadThread = new ServerReadThread(socket, this);
         clientReadThread.setPriority(Thread.MAX_PRIORITY);
         clientReadThread.start();
     }
@@ -87,14 +91,14 @@ public class ChatSocketServer {
                             sleep(SLEEP_TIME);
                         }
                     }
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
+                } catch (UnsupportedEncodingException ue) {
+                    LOGGER.log(Level.SEVERE, "Unsupported Encoding Exception", ue);
                 } catch (UnknownHostException e) {
-                    e.printStackTrace();
+                    LOGGER.log(Level.SEVERE, "Unknown Host Exception", e);
                 } catch (InterruptedException ie) {
-                    ie.printStackTrace();
+                    LOGGER.log(Level.SEVERE, "Interrupted Exception", ie);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    LOGGER.log(Level.SEVERE, "IO Exception", e);
                 } finally {
                     interrupt();
                 }
@@ -102,21 +106,6 @@ public class ChatSocketServer {
         };
         writeThread.setPriority(Thread.MAX_PRIORITY);
         writeThread.start();
-    }
-
-    /**
-     * Handles message for client's exit. Show ip as identificator of a client
-     *
-     * @param socket
-     */
-    private void handleClientExit(Socket socket) {
-        //In the case when client exit the application without inputting needed message
-        String address = socket.getInetAddress().getHostAddress();
-        String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.message();
-        clientIpList.remove(address);
-        socketList.remove(address);
-        System.out.println(message);
-        handleMessageShowAllClients(message);
     }
 
     /**
@@ -128,22 +117,6 @@ public class ChatSocketServer {
             System.out.println("Input " + SHOW_ALL_CLIENTS + " to show all connected clients " +
                     "(no strict rules for capitalization)");
             System.out.println("Enter KICK_<IP> to kick out user from chat");
-        }
-    }
-
-    /**
-     * Removes socket with given IP from the list of connected sockets
-     *
-     * @param ip
-     */
-    private void removeSocketWithIP(String ip) throws IOException {
-        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
-            Socket s = entry.getValue();
-            if (s.getInetAddress().getHostAddress().contains(ip)) {
-                s.close();
-                socketList.remove(s.getRemoteSocketAddress().toString());
-                return;
-            }
         }
     }
 
@@ -166,6 +139,22 @@ public class ChatSocketServer {
     }
 
     /**
+     * Removes socket with given IP from the list of connected sockets
+     *
+     * @param ip
+     */
+    private void removeSocketWithIP(String ip) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            Socket s = entry.getValue();
+            if (s.getInetAddress().getHostAddress().contains(ip)) {
+                s.close();
+                socketList.remove(s.getRemoteSocketAddress().toString());
+                return;
+            }
+        }
+    }
+
+    /**
      * Sends messages to all clients except a client who send the message
      *
      * @param message
@@ -178,8 +167,24 @@ public class ChatSocketServer {
                 if (!address.equals(currentAdress)) {
                     outputStream.write(message.getBytes(CHARSET));
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ie) {
+                LOGGER.log(Level.SEVERE, "IO Exception", ie);
+            }
+        }
+    }
+
+    /**
+     * Sends messages to all clients
+     *
+     * @param message
+     */
+    private void sendToAllConnectedClients(String message) throws IOException {
+        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
+            OutputStream outputStream = entry.getValue().getOutputStream();
+            try {
+                outputStream.write(wrapWithIP(message).getBytes(CHARSET));
+            } catch (IOException ie) {
+                LOGGER.log(Level.SEVERE, "IO Exception", ie);
             }
         }
     }
@@ -232,18 +237,17 @@ public class ChatSocketServer {
     }
 
     /**
-     * Sends messages to all clients
+     * Handles message for client's exit. Show ip as identificator of a client
      *
-     * @param message
+     * @param socket
      */
-    private void sendToAllConnectedClients(String message) throws IOException {
-        for (Map.Entry<String, Socket> entry : socketList.entrySet()) {
-            OutputStream outputStream = entry.getValue().getOutputStream();
-            try {
-                outputStream.write(wrapWithIP(message).getBytes(CHARSET));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+    private void handleClientExit(Socket socket) {
+        //In the case when client exit the application without inputting needed message
+        String address = socket.getInetAddress().getHostAddress();
+        String message = address + " : " + ServiceMessages.CLIENT_QUITED_THE_CHAT.message();
+        clientIpList.remove(address);
+        socketList.remove(address);
+        System.out.println(message);
+        handleMessageShowAllClients(message);
     }
 }

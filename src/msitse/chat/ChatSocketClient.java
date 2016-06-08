@@ -2,6 +2,8 @@ package msitse.chat;
 
 import java.io.*;
 import java.net.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static msitse.chat.ChatUtils.*;
 
@@ -15,6 +17,8 @@ public class ChatSocketClient {
 
     private String nameOfContainer;
     private int port;
+
+    private Logger LOGGER = Logger.getLogger("ChatSocketClient");
 
     public ChatSocketClient(String nameOfContainer, int port) {
         this.nameOfContainer = nameOfContainer;
@@ -50,10 +54,10 @@ public class ChatSocketClient {
             createWriteThread();
 
             sendMessageConnectionEstablished(outStream);
-        } catch (UnknownHostException u) {
-            u.printStackTrace();
+        } catch (UnknownHostException ue) {
+            LOGGER.log(Level.SEVERE, "Unknown Host Exception", ue);
         } catch (IOException io) {
-            io.printStackTrace();
+            LOGGER.log(Level.SEVERE, "IO Exception", io);
         }
     }
 
@@ -75,9 +79,10 @@ public class ChatSocketClient {
                             System.out.println(RECEIVED_FROM + receivedMessage);
                         }
                     } catch (SocketException se) {
+                        LOGGER.log(Level.SEVERE, "Socket Exception", se);
                         System.exit(0);
-                    } catch (IOException i) {
-                        i.printStackTrace();
+                    } catch (IOException ie) {
+                        LOGGER.log(Level.SEVERE, "IO Exception", ie);
                     }
                 }
             }
@@ -104,10 +109,10 @@ public class ChatSocketClient {
                                 sleep(SLEEP_TIME);
                             }
                         }
-                    } catch (IOException i) {
-                        i.printStackTrace();
+                    } catch (IOException ie) {
+                        LOGGER.log(Level.SEVERE, "IO Exception", ie);
                     } catch (InterruptedException ie) {
-                        ie.printStackTrace();
+                        LOGGER.log(Level.SEVERE, "Interrupted Exception", ie);
                     }
                 }
             }
@@ -124,8 +129,8 @@ public class ChatSocketClient {
     private void sendMessageConnectionEstablished(OutputStream outStream) {
         try {
             outStream.write(wrapWithIP(ServiceMessages.CONNECTION_ESTABLISHED.message()).getBytes(CHARSET));
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ie) {
+            LOGGER.log(Level.SEVERE, "IO Exception", ie);
         }
     }
 
@@ -140,8 +145,8 @@ public class ChatSocketClient {
             try {
                 outStream.write(wrapWithIP(ServiceMessages.CLIENT_QUITED_THE_CHAT.message()).getBytes(CHARSET));
                 System.exit(0);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ie) {
+                LOGGER.log(Level.SEVERE, "IO Exception", ie);
             }
         }
     }
