@@ -52,7 +52,7 @@ public class ServerReadThread extends Thread {
                     }
                 }
             } catch (SocketException se) {
-                LOGGER.log(Level.SEVERE, "Socket Exception", se);
+                //Catched, however, not logged to eliminate excess output in the console
             } catch (IOException i) {
                 LOGGER.log(Level.SEVERE, "IO Exception", i);
             } catch (IllegalMonitorStateException ie) {
